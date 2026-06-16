@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>오늘의 가락 - 오행이 점지하는 오늘의 소리</title>
+<script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@300;400;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
+
+  :root {
+    /* 라이트 모드 (기본) */
+    --ink:      #1A1530;
+    --indigo:   #2B3A6B;
+    --gold:     #B8860B;
+    --gold-lt:  #D4A843;
+    --cream:    #F5EFE0;
+    --paper:    #FBF7EF;
+    --red:      #8B2020;
+    --muted:    #6B6070;
+    --line:     rgba(184,134,11,0.25);
+    --bg-result:#e9e3d5;
+  }
+
+  body.dark-mode {
+    /* 다크 모드 변수 */
+    --ink:      #FBF7EF;
+    --indigo:   #546BBA;
+    --gold:     #D4A843;
+    --gold-lt:  #E8C678;
+    --cream:    #1E1A24;
+    --paper:    #120F16;
+    --red:      #D45D5D;
+    --muted:    #A8A3AD;
+    --line:     rgba(212,168,67,0.25);
+    --bg-result:#1A1720;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Noto Sans KR', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    display: flex;
+    justify-content: center;
+    transition: background-color 0.3s, color 0.3s;
+  }
+
+  /* 다국어(i18n) 처리 CSS */
+  body[data-lang="ko"] .en { display: none !important; }
+  body[data-lang="en"] .ko { display: none !important; }
+
+  /* 상단 버튼 공통 (언어 & 테마) */
+  .top-btn {
+    position: absolute; top: 20px; z-index: 100;
+    background: transparent; border: 1px solid var(--gold);
+    color: var(--gold); padding: 4px 12px; border-radius: 20px;
+    font-family: 'Noto Sans KR', sans-serif; font-size: 11px; font-weight: 700;
+    letter-spacing: 1px; cursor: pointer; transition: all 0.2s;
+  }
+  .top-btn:active { background: var(--gold); color: var(--paper); }
+  
+  .lang-toggle { right: 20px; }
+  .theme-toggle { right: 76px; font-size: 12px; padding: 4px 10px; }
+
+  /* 모바일 웹앱 형태의 컨테이너 */
+  .app-container {
+    width: 100%; max-width: 480px; min-height: 100vh;
+    background: var(--paper); position: relative;
+    box-shadow: 0 0 20px rgba(0,0,0,0.05);
+    display: flex; flex-direction: column;
+    transition: background-color 0.3s;
+  }
+
+  /* 배경 패턴 */
+  .app-container::before {
+    content:''; position:absolute; inset:0; z-index:0;
+    background-image:
+      repeating-linear-gradient(0deg, transparent, transparent 39px, var(--line) 39px, var(--line) 40px),
+      repeating-linear-gradient(90deg, transparent, transparent 39px, var(--line) 39px, var(--line) 40px);
+    pointer-events:none; opacity:0.35;
+  }
+
+  .screen { display:none; position:relative; z-index:1; flex: 1; flex-direction:column; }
+  .screen.active { display:flex; }
+
+  /* 공통 헤더 */
+  .top-bar {
+    text-align:center; padding:36px 20px 20px;
+    border-bottom: 1px solid var(--line);
+    background: linear-gradient(180deg, var(--paper) 70%, transparent);
+  }
+  .top-bar .hanja {
+    font-family:'Noto Serif KR', serif; font-size:12px; letter-spacing:6px; color:var(--gold); display:block; margin-bottom:8px;
+  }
+  .top-bar h1 {
+    font-family:'Noto Serif KR', serif; font-size:28px; font-weight:700; color:var(--ink); letter-spacing:2px;
+  }
+
+  /* 진입 화면 */
+  #screen-intro { justify-content:center; align-items:center; padding: 0 24px 60px; }
+  .intro-hero { display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; margin-bottom: 40px; }
+  .trigram-ring { width:180px; height:180px; position:relative; margin-bottom:40px; animation: float 6s ease-in-out infinite; }
+  @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-10px); } 100% { transform: translateY(0px); } }
+  .trigram-ring svg { width:100%; height:100%; }
+  
+  /* SVG 다크모드 대응 */
+  body.dark-mode .trigram-ring svg circle[fill="#F5EFE0"] { fill: #1E1A24; }
+  body.dark-mode .trigram-ring svg text { fill: #FBF7EF; }
+  
+  .intro-title {
+    font-family:'Noto Serif KR', serif; font-size:36px; font-weight:700; color:var(--ink);
+    letter-spacing:4px; margin-bottom:12px; white-space: nowrap; display: flex; justify-content: center; align-items: baseline;
+  }
+  body[data-lang="en"] .intro-title { font-size: 26px; letter-spacing: 1px; }
+  .intro-sub { font-size:15px; color:var(--muted); line-height:1.8; letter-spacing:0.5px; }
+  .intro-ornament { display:flex; align-items:center; gap:12px; margin:28px 0; color:var(--gold); font-size:12px; letter-spacing:2px; width: 100%; white-space: nowrap; }
+  .intro-ornament span { flex:1; height:1px; background:var(--gold); opacity:0.4; }
+
+  .btn-main {
+    width:100%; padding:20px; background:var(--indigo); color:#fff;
+    border:none; border-radius:4px; cursor:pointer; font-family:'Noto Serif KR', serif;
+    font-size:18px; font-weight:600; letter-spacing:2px; position:relative; overflow:hidden;
+    transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  }
+  .btn-main::before { content:''; position:absolute; inset:0; background:linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 60%); }
+  .btn-main:active { transform: translateY(2px); box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); }
+  .btn-main .btn-hanja { display:block; font-size:11px; opacity:0.7; letter-spacing:5px; margin-top:6px; font-family: 'Noto Sans KR', sans-serif; font-weight: 400; }
+
+  /* 입력 화면 */
+  .input-container { padding:0 24px 40px; flex:1; overflow-y:auto; }
+  .section-label { font-size:11px; letter-spacing:4px; color:var(--gold); text-transform:uppercase; margin-bottom:16px; display:block; }
+  .input-block { padding:30px 0; border-bottom:1px dashed var(--line); }
+  .input-block:last-of-type { border-bottom:none; }
+  .input-title { font-family:'Noto Serif KR', serif; font-size:18px; font-weight:600; color:var(--ink); margin-bottom:8px; }
+  .input-hint { font-size:13px; color:var(--muted); margin-bottom:20px; line-height:1.6; }
+  .highlight-hint { color: var(--red); font-weight: 500; font-size: 12px; margin-left: 6px; }
+
+  .date-row { display:flex; gap:10px; }
+  .date-row select {
+    flex:1; padding:14px 10px; border:1px solid rgba(184,134,11,0.4); border-radius:4px;
+    background:var(--cream); color:var(--ink); font-family:'Noto Sans KR', sans-serif;
+    font-size:15px; appearance:none; text-align:center;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M0 0l6 8 6-8z' fill='%23B8860B'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 12px center; cursor:pointer; transition: all 0.2s;
+  }
+  .date-row select:focus { outline:none; border-color:var(--indigo); box-shadow: 0 0 0 2px rgba(43,58,107,0.1); }
+
+  .time-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+  .time-btn {
+    padding:14px 4px; border:1px solid rgba(184,134,11,0.3); border-radius:4px;
+    background:var(--cream); cursor:pointer; font-size:13px; color:var(--muted); text-align:center;
+    transition: all 0.2s; font-family:'Noto Sans KR', sans-serif;
+  }
+  .time-btn .time-kor { font-size:13px; font-weight:500; color:var(--ink); display:block; margin-bottom:4px; }
+  .time-btn .time-range { font-size:11px; color:var(--muted); }
+  .time-btn.selected { background:var(--indigo); border-color:var(--indigo); color:#fff; transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
+  .time-btn.selected .time-kor, .time-btn.selected .time-range { color:#fff; }
+
+  .emotion-tags { display:flex; flex-wrap:wrap; gap:10px; margin-top:15px; }
+  .etag {
+    padding:10px 16px; border:1px solid rgba(184,134,11,0.3); border-radius:30px;
+    font-size:14px; color:var(--ink); cursor:pointer; background:var(--cream);
+    transition:all 0.2s; font-weight: 500;
+  }
+  .etag:active, .etag.active { background:var(--red); border-color:var(--red); color:#fff; box-shadow: 0 4px 10px rgba(139,32,32,0.2); }
+
+  .bottom-cta { padding:20px 24px 40px; border-top:1px solid var(--line); background: var(--paper); }
+
+  /* 로딩 화면 */
+  #screen-loading { align-items:center; justify-content:center; text-align:center; padding:40px 24px; }
+  .loading-symbol { width:120px; height:120px; margin:0 auto 40px; animation: spin 6s cubic-bezier(0.4, 0.0, 0.2, 1) infinite; }
+  @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  body.dark-mode .loading-symbol circle[fill="#F5EFE0"] { fill: #1E1A24; }
+  body.dark-mode .loading-symbol text { fill: #FBF7EF; }
+  
+  .loading-txt { font-family:'Noto Serif KR', serif; font-size:22px; color:var(--ink); margin-bottom:12px; font-weight: 700; }
+  .loading-sub { font-size:14px; color:var(--muted); letter-spacing:1px; }
+  .loading-dots { display:inline-block; width: 20px; text-align: left; }
+  .loading-dots::after { content:''; animation: dots 1.5s steps(4,end) infinite; }
+  @keyframes dots { 0%,20%{content:''}25%,45%{content:'.'}50%,70%{content:'..'}75%,100%{content:'...'} }
+
+  /* 결과 화면 */
+  #screen-result { padding:0 0 60px; background: var(--bg-result); transition: background-color 0.3s; }
+  .capture-wrapper { background: var(--bg-result); padding: 24px; transition: background-color 0.3s; }
+
+  .prescription-card {
+    background: var(--paper); border: 1px solid var(--line);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08); position: relative; overflow: hidden; z-index: 1;
+    transition: background-color 0.3s;
+  }
+  .talisman-bg {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    font-family: 'Noto Serif KR', serif; font-size: 180px; color: var(--red);
+    opacity: 0.03; pointer-events: none; z-index: 0; white-space: nowrap; user-select: none;
+  }
+  .prescription-card::before { content: ''; position: absolute; inset: 0; border: 4px solid var(--gold); pointer-events: none; z-index: 10; }
+  .prescription-card::after {
+    content:''; position:absolute; top:0; right:0; width:120px; height:120px;
+    background:radial-gradient(circle at top right, rgba(184,134,11,0.08), transparent 70%); pointer-events: none;
+  }
+
+  .rx-header-top, .result-header, .rx-body, .rx-word { position: relative; z-index: 2; }
+  .rx-header-top { display: flex; justify-content: space-between; align-items: center; padding: 24px 24px 0; }
+  .rx-logo { font-family: 'Noto Serif KR', serif; font-size: 12px; color: var(--gold); letter-spacing: 2px;}
+  .rx-date { font-size: 11px; color: var(--muted); letter-spacing: 1px;}
+
+  .result-header { padding:30px 24px 24px; border-bottom:1px dashed var(--line); text-align:center; }
+  .result-ilchin { font-family:'Noto Serif KR', serif; font-size:36px; font-weight:700; color:var(--ink); letter-spacing:4px; margin-bottom:10px; }
+  .result-ilchin-sub { font-size:15px; color:var(--muted); }
+
+  .rx-body { padding:30px 24px; }
+  .rx-row { margin-bottom:24px; }
+  .rx-row:last-child { margin-bottom:0; }
+  .rx-key { font-size:12px; letter-spacing:4px; color:var(--gold); margin-bottom:8px; display:block; font-weight: 600; }
+  .rx-val { font-family:'Noto Serif KR', serif; font-size:24px; font-weight:700; color:var(--ink); line-height:1.4; }
+  .rx-val-sm { font-size:15px; color:var(--muted); margin-top:6px; line-height:1.6; }
+  .rx-reason {
+    font-size:14px; color:var(--ink); line-height:1.8;
+    background: var(--cream); padding: 16px; border-radius: 4px; border-left: 3px solid var(--gold); margin-top:12px;
+  }
+  .rx-action-guide {
+    font-size:14px; color: var(--indigo); line-height:1.7; font-weight:500;
+    margin-top: 12px; padding-left: 12px; border-left: 2px dashed rgba(184,134,11,0.4);
+  }
+  
+  .rx-word { margin-top:20px; padding:24px; background: var(--indigo); color: white; text-align: center; }
+  .rx-word-label { font-size:11px; letter-spacing:3px; color:rgba(255,255,255,0.6); margin-bottom:10px; display: block;}
+  .rx-word-txt { font-family:'Noto Serif KR', serif; font-size:17px; font-weight:600; line-height:1.5; word-break: keep-all; }
+
+  /* 배너 및 버튼 영역 */
+  .ticket-banner {
+    margin: 0 24px 20px; background: linear-gradient(135deg, var(--gold) 0%, var(--gold-lt) 100%);
+    border-radius: 6px; padding: 20px; display: flex; align-items: center; gap: 16px;
+    cursor: pointer; box-shadow: 0 6px 20px rgba(184,134,11,0.25); transition: transform 0.2s, box-shadow 0.2s;
+    color: #fff; position: relative; overflow: hidden;
+  }
+  .ticket-banner::before {
+    content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+    background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0) 100%);
+    transform: rotate(45deg); animation: shine 3s infinite;
+  }
+  @keyframes shine { 0% { transform: translateX(-100%) rotate(45deg); } 100% { transform: translateX(100%) rotate(45deg); } }
+  .ticket-banner:active { transform: translateY(2px); box-shadow: 0 2px 10px rgba(184,134,11,0.25); }
+  .tb-icon { font-size: 32px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2)); }
+  .tb-text p { font-size: 12px; margin-bottom: 4px; opacity: 0.9; font-weight: 500;}
+  .tb-text strong { font-size: 15px; font-weight: 700; text-decoration: underline; text-underline-offset: 4px;}
+
+  .action-group { padding: 0 24px; display: flex; flex-direction: column; gap: 12px; }
+  .btn-action {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    width: 100%; padding: 18px; border-radius: 6px;
+    font-family: 'Noto Sans KR', sans-serif; font-size: 15px; font-weight: 600;
+    cursor: pointer; transition: all 0.2s; border: none;
+  }
+  .btn-youtube { background: #FF0000; color: white; box-shadow: 0 4px 10px rgba(255,0,0,0.2); }
+  .btn-youtube:active { background: #CC0000; }
+  .btn-youtube svg { width: 20px; height: 20px; fill: currentColor; }
+  .btn-save { background: var(--ink); color: var(--paper); border: 1px solid var(--line); }
+  .btn-save:active { opacity: 0.8; }
+  .btn-share { background: var(--cream); color: var(--ink); border: 1px solid rgba(184,134,11,0.3); }
+  .btn-retry { background: transparent; color: var(--muted); border: none; text-decoration: underline; margin-top: 10px; }
+
+  /* 애니메이션 */
+  .fade-in { animation: fadeUp 0.6s ease both; }
+  @keyframes fadeUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+  .delay-1 { animation-delay:0.1s; } .delay-2 { animation-delay:0.2s; }
+</style>
+</head>
+<body data-lang="ko">
+
+<button id="theme-toggle" class="top-btn theme-toggle" onclick="toggleTheme()">🌙</button>
+<button id="lang-toggle" class="top-btn lang-toggle" onclick="toggleLanguage()">ENG</button>
+
+<div class="app-container">
+  <div id="screen-intro" class="screen active">
+    <div class="intro-hero fade-in">
+      <div class="trigram-ring">
+        <svg viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="80" cy="80" r="72" stroke="#B8860B" stroke-width="1" stroke-dasharray="4 6" opacity="0.5"/>
+          <circle cx="80" cy="80" r="54" stroke="#2B3A6B" stroke-width="0.5" opacity="0.4"/>
+          <circle cx="80" cy="80" r="28" fill="#F5EFE0" stroke="#B8860B" stroke-width="1"/>
+          <path d="M80 52 A28 28 0 0 1 80 108 A14 14 0 0 1 80 80 A14 14 0 0 0 80 52Z" fill="#1A1530" opacity="0.8"/>
+          <path d="M80 52 A28 28 0 0 0 80 108 A14 14 0 0 0 80 80 A14 14 0 0 1 80 52Z" fill="#B8860B" opacity="0.6"/>
+          <text x="80" y="18" text-anchor="middle" font-family="serif" font-size="11" fill="#B8860B" opacity="0.8">木</text>
+          <text x="142" y="84" text-anchor="middle" font-family="serif" font-size="11" fill="#8B2020" opacity="0.8">火</text>
+          <text x="80" y="150" text-anchor="middle" font-family="serif" font-size="11" fill="#7A5A1A" opacity="0.8">土</text>
+          <text x="18" y="84" text-anchor="middle" font-family="serif" font-size="11" fill="#2B3A6B" opacity="0.8">金</text>
+          <g stroke="#B8860B" stroke-width="0.5" opacity="0.3">
+            <line x1="80" y1="8" x2="80" y2="26"/>
+            <line x1="80" y1="134" x2="80" y2="152"/>
+            <line x1="8" y1="80" x2="26" y2="80"/>
+            <line x1="134" y1="80" x2="152" y2="80"/>
+          </g>
+        </svg>
+      </div>
+      <p class="intro-title">
+        <span class="ko">오늘의 가락</span><span class="en">Today's Rhythm</span><span style="font-size:20px;color:var(--gold);margin-left:8px;font-weight:400;">今日之樂</span>
+      </p>
+      <div class="intro-ornament">
+        <span></span>
+        <span class="ko">오행이 점지하는 오늘의 소리</span><span class="en">Melodies guided by the five elements</span>
+        <span></span>
+      </div>
+      <p class="intro-sub">
+        <span class="ko">
+          태어난 시간과 당신의 기운을 분석하여<br>
+          지금 이 순간, 가장 필요한<br>
+          <strong style="color:var(--indigo)">맞춤형 국악 처방전</strong>을 발급해 드립니다.
+        </span>
+        <span class="en">
+          By analyzing your birth time and energy,<br>
+          we prescribe the perfect<br>
+          <strong style="color:var(--indigo)">traditional Korean music</strong> for you today.
+        </span>
+      </p>
+    </div>
+    <div style="width: 100%;" class="fade-in delay-1">
+      <button class="btn-main" onclick="goTo('screen-input')">
+        <span class="ko">나만의 소리 처방받기</span><span class="en">Get My Prescription</span>
+        <span class="btn-hanja"><span class="ko">당신의 사주를 읽겠습니다</span><span class="en">Reading your destiny</span></span>
+      </button>
+    </div>
+  </div>
+
+  <div id="screen-input" class="screen">
+    <div class="top-bar fade-in">
+      <span class="hanja"><span class="ko">데이터 입력</span><span class="en">DATA INPUT</span></span>
+      <h1><span class="ko">나의 기운 기록하기</span><span class="en">Record My Energy</span></h1>
+    </div>
+    <div class="input-container fade-in delay-1">
+      <div class="input-block">
+        <span class="section-label"><span class="ko">STEP 1. 생년월일</span><span class="en">STEP 1. DATE OF BIRTH</span></span>
+        <p class="input-title"><span class="ko">태어난 날짜 (양력)</span><span class="en">Birth Date (Solar)</span></p>
+        <div class="date-row">
+          <select id="sel-year" aria-label="태어난 해"></select>
+          <select id="sel-month" aria-label="태어난 달"><option value="" class="ko">월</option><option value="" class="en">Month</option></select>
+          <select id="sel-day" aria-label="태어난 날"><option value="" class="ko">일</option><option value="" class="en">Day</option></select>
+        </div>
+      </div>
+      <div class="input-block">
+        <span class="section-label"><span class="ko">STEP 2. 태어난 시간</span><span class="en">STEP 2. TIME OF BIRTH</span></span>
+        <p class="input-title"><span class="ko">태어난 시간대</span><span class="en">Birth Time</span></p>
+        <p class="input-hint"><span class="ko">정확히 모를 경우 '모름'을 선택하세요</span><span class="en">If unsure, select 'Unknown'</span></p>
+        <div class="time-grid" id="time-grid"></div>
+      </div>
+      <div class="input-block" style="border-bottom: none;">
+        <span class="section-label"><span class="ko">STEP 3. 오늘의 감정 (다중 선택)</span><span class="en">STEP 3. TODAY'S EMOTION</span></span>
+        <p class="input-title"><span class="ko">지금 당신의 마음 상태는?</span><span class="en">How are you feeling right now?</span></p>
+        <p class="input-hint">
+          <span class="ko">처방의 정확도를 높여줍니다</span><span class="en">Improves prescription accuracy</span>
+          <span class="highlight-hint"><span class="ko">여러 개 선택 가능</span><span class="en">Multiple choices allowed</span></span>
+        </p>
+        <div class="emotion-tags" id="emotion-tags"></div>
+      </div>
+    </div>
+    <div class="bottom-cta fade-in delay-2">
+      <button class="btn-main" onclick="startReading()">
+        <span class="ko">처방전 발급받기</span><span class="en">Get Prescription</span>
+        <span class="btn-hanja"><span class="ko">결과를 분석합니다</span><span class="en">Analyzing results</span></span>
+      </button>
+    </div>
+  </div>
+
+  <div id="screen-loading" class="screen">
+    <svg class="loading-symbol" viewBox="0 0 100 100">
+      <circle cx="50" cy="50" r="42" stroke="#B8860B" stroke-width="2" stroke-dasharray="15 15" fill="none"/>
+      <circle cx="50" cy="50" r="30" stroke="#2B3A6B" stroke-width="1" fill="none"/>
+      <circle cx="50" cy="50" r="18" fill="#F5EFE0" stroke="#B8860B" stroke-width="1"/>
+      <text x="50" y="56" text-anchor="middle" font-family="serif" font-size="16" fill="#1A1530" font-weight="bold">易</text>
+    </svg>
+    <p class="loading-txt"><span class="ko">만세력을 살피는 중</span><span class="en">Reading the Almanac</span><span class="loading-dots"></span></p>
+    <p class="loading-sub" id="loading-msg"></p>
+  </div>
+
+  <div id="screen-result" class="screen">
+    <div class="top-bar">
+      <span class="hanja"><span class="ko">처방 완료</span><span class="en">COMPLETE</span></span>
+      <h1><span class="ko">오늘의 가락 처방전</span><span class="en">Rhythm Prescription</span></h1>
+    </div>
+    <div style="overflow-y:auto; flex:1;">
+      <div class="capture-wrapper" id="capture-area">
+        <div class="prescription-card fade-in">
+          <div class="talisman-bg">處方</div>
+          <div class="rx-header-top">
+            <span class="rx-logo">SEOUL NAMSAN TRADITIONAL THEATER</span>
+            <span class="rx-date" id="result-today-date"></span>
+          </div>
+          <div class="result-header">
+            <p style="font-size: 12px; color: var(--gold); letter-spacing: 2px; margin-bottom: 8px;"><span class="ko">당신의 오늘 일진</span><span class="en">Your Fortune Today</span></p>
+            <div class="result-ilchin" id="result-ilchin"></div>
+            <div class="result-ilchin-sub" id="result-ilchin-sub"></div>
+          </div>
+          <div class="rx-body">
+            <div class="rx-row">
+              <span class="rx-key"><span class="ko">오늘 필요한 기운</span><span class="en">Energy Needed Today</span></span>
+              <div class="rx-val" id="rx-needed-element" style="color: var(--red);"></div>
+              <div class="rx-val-sm" id="rx-needed-desc"></div>
+            </div>
+            <div class="rx-row" style="margin-top: 30px;">
+              <span class="rx-key"><span class="ko">맞춤 국악 처방</span><span class="en">Custom Gugak Prescription</span></span>
+              <div class="rx-val" id="rx-song"></div>
+              <div class="rx-val-sm" id="rx-inst"></div>
+              <div class="rx-reason" id="rx-reason"></div>
+              <div class="rx-action-guide" id="rx-action-guide"></div>
+            </div>
+          </div>
+          <div class="rx-word">
+            <span class="rx-word-label"><span class="ko">오늘의 한 마디</span><span class="en">Word of the Day</span></span>
+            <div class="rx-word-txt" id="rx-word"></div>
+          </div>
+        </div>
+      </div>
+      <div class="ticket-banner fade-in delay-1" onclick="window.open('https://www.sgtt.kr/program/concert', '_blank')">
+        <div class="tb-icon">🎫</div>
+        <div class="tb-text">
+          <p><span class="ko">이 기운, 현장의 생음(生音)으로 만나고 싶다면?</span><span class="en">Want to feel this energy live?</span></p>
+          <strong><span class="ko">서울남산국악당 공연 예매하기 &gt;</span><span class="en">Book Seoul Namsan Traditional Theater Tickets &gt;</span></strong>
+        </div>
+      </div>
+      <div class="action-group fade-in delay-2">
+        <button class="btn-action btn-youtube" id="btn-youtube">
+          <svg viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/></svg>
+          <span class="ko">이 음악 유튜브로 먼저 들어보기</span><span class="en">Listen on YouTube first</span>
+        </button>
+        <button class="btn-action btn-save" onclick="downloadPrescription()">
+          <span class="ko">↓ 처방전 이미지로 저장하기</span><span class="en">↓ Save as Image</span>
+        </button>
+        <button class="btn-action btn-share" onclick="shareResult()">
+          <span class="ko">⎋ 친구에게 결과 공유하기</span><span class="en">⎋ Share Result</span>
+        </button>
+        <button class="btn-action btn-retry" onclick="goTo('screen-intro')">
+          <span class="ko">사주 다시 분석하기</span><span class="en">Analyze Destiny Again</span>
+        </button>
+      </div>
+      <p style="text-align:center; font-size:12px; color:var(--muted); padding:30px 24px; letter-spacing:1px; font-family: 'Noto Serif KR', serif;">
+        <span class="ko">서울남산국악당 기획 프로젝트</span><span class="en">Seoul Namsan Traditional Theater Project</span>
+      </p>
+    </div>
+  </div>
+</div>
+
+<script>
+let currentLang = 'ko';
+
+// ── 다크모드 제어 ────────────────────────
+function toggleTheme() {
+  const body = document.body;
+  const btn = document.getElementById('theme-toggle');
+  body.classList.toggle('dark-mode');
+  btn.textContent = body.classList.contains('dark-mode') ? '☀️' : '🌙';
+}
+
+// ── 데이터베이스 (다국어 지원) ────────────────────────
+const CHEONGAN = ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
+const JIJI     = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
+const SIPGAN_KOR = { ko: {'甲':'갑','乙':'을','丙':'병','丁':'정','戊':'무','己':'기','庚':'경','辛':'신','壬':'임','癸':'계'}, en: {'甲':'Gap','乙':'Eul','丙':'Byeong','丁':'Jeong','戊':'Mu','己':'Gi','庚':'Gyeong','辛':'Sin','壬':'Im','癸':'Gye'} };
+const JIJI_KOR = { ko: ['자','축','인','묘','진','사','오','미','신','유','술','해'], en: ['Ja','Chuk','In','Myo','Jin','Sa','O','Mi','Sin','Yu','Sul','Hae'] };
+
+const OHANG_INFO = {
+  목: { label_ko:'木 (목)', label_en:'木 (Wood)', color:'#2D6A2D', feel_ko:'생동과 시작의 날', feel_en:'Day of Vitality and Beginnings' },
+  화: { label_ko:'火 (화)', label_en:'火 (Fire)', color:'#8B1A1A', feel_ko:'열정과 표현의 날', feel_en:'Day of Passion and Expression' },
+  토: { label_ko:'土 (토)', label_en:'土 (Earth)', color:'#7A5A1A', feel_ko:'안정과 균형의 날', feel_en:'Day of Stability and Balance' },
+  금: { label_ko:'金 (금)', label_en:'金 (Metal)', color:'#2B3A6B', feel_ko:'절제와 사유의 날', feel_en:'Day of Restraint and Thought' },
+  수: { label_ko:'水 (수)', label_en:'水 (Water)', color:'#1A3A6A', feel_ko:'흐름과 지혜의 날', feel_en:'Day of Flow and Wisdom' },
+};
+
+const DB = {
+  목: {
+    inst_ko: '가야금 (伽倻琴)', inst_en: 'Gayageum (Korean Zither)',
+    songs_ko: ['가야금 산조', '가야금 병창 새타령', '황병기 춘설'], songs_en: ['Gayageum Sanjo', 'Gayageum Byeongchang Saetaryeong', 'Hwang Byungki - Chunseol'],
+    direct_urls: ['https://www.youtube.com/watch?v=HXGkELFcz9I', 'https://www.youtube.com/watch?v=b-IyNQIMeI8', 'https://www.youtube.com/watch?v=3Lk2FcMGL8Y'],
+    desc_ko: '새로운 시작을 위한 부드러운 생명력이 필요합니다.', desc_en: 'Soft vitality for a new beginning is needed.',
+    reason_ko: '목(木)의 기운은 생동감을 상징합니다. 가야금의 명주실이 빚어내는 섬세하고 따뜻한 음색이 봄날의 새싹처럼 당신의 일상에 싱그러운 활력을 불어넣을 것입니다.',
+    reason_en: 'The Wood (木) energy symbolizes vitality. The delicate and warm tone of the Gayageum will breathe fresh life into your day, like a sprout in spring.',
+    action_guide_ko: '🎧 감상 팁: 따뜻한 차를 한 잔 내리고, 눈을 감은 채 타악기처럼 튕기는 가야금의 첫 음에 집중해 보세요.',
+    action_guide_en: '🎧 Tip: Brew a warm cup of tea, close your eyes, and focus on the very first plucked note of the Gayageum.',
+    words_ko: ['망설이던 일이 있다면, 오늘은 가볍게 한 걸음 내디뎌 보세요.', '작은 시작이 결국 큰 숲을 이룹니다.', '당신의 내면에 움트는 새로운 감각에 귀 기울여보세요.'],
+    words_en: ['If you have been hesitating, take a light step forward today.', 'Small beginnings eventually form a great forest.', 'Listen to the new sensations sprouting within you.']
+  },
+  화: {
+    inst_ko: '해금 (奚琴)', inst_en: 'Haegeum (Korean Fiddle)',
+    songs_ko: ['해금 산조 자진모리', '지영희류 해금산조', '해금 창작곡 적념'], songs_en: ['Haegeum Sanjo Jajinmori', 'Ji Yeong-hui Style Haegeum Sanjo', 'Haegeum Original - Jeoknyeom'],
+    direct_urls: ['https://www.youtube.com/watch?v=14JaG7M9eHI', 'https://www.youtube.com/watch?v=cZGhLuoRPkQ', 'https://www.youtube.com/watch?v=zdk-CTA8bVU'],
+    desc_ko: '마음속 감정을 밖으로 표출할 열정이 필요합니다.', desc_en: 'You need passion to express your inner emotions.',
+    reason_ko: '화(火)의 기운은 강렬한 표현욕구를 의미합니다. 해금 특유의 애절하면서도 호소력 짙은 찰음(마찰음)이 당신의 억눌린 감정을 대변하며 속 시원한 카타르시스를 선사합니다.',
+    reason_en: 'The Fire (火) energy means a strong desire to express. The Haegeum’s sorrowful yet appealing frictional sound represents your suppressed emotions, providing a refreshing catharsis.',
+    action_guide_ko: '🎧 감상 팁: 방 안의 조명을 조금 어둡게 하고, 해금의 마찰음에 내 안의 찌꺼기들을 실어 보낸다고 상상해 보세요.',
+    action_guide_en: '🎧 Tip: Dim the lights a bit and imagine sending away the debris of your mind with the friction sound of the Haegeum.',
+    words_ko: ['오늘은 마음속 불꽃을 숨기지 말고 드러내어 보세요.', '감정이 풍부한 만큼, 오늘 듣는 음악은 더욱 깊게 다가올 것입니다.', '뜨거운 열정이 당신을 가장 빛나게 하는 하루입니다.'],
+    words_en: ['Do not hide the flame in your heart today; let it show.', 'As rich as your emotions are, the music you hear today will reach you deeper.', 'Today is the day your hot passion makes you shine the brightest.']
+  },
+  토: {
+    inst_ko: '아쟁 (牙箏)', inst_en: 'Ajaeng (Bowed Zither)',
+    songs_ko: ['박종선류 아쟁산조', '남도 시나위', '윤윤석류 아쟁산조'], songs_en: ['Park Jong-seon Style Ajaeng Sanjo', 'Namdo Sinawi', 'Yun Yun-seok Style Ajaeng Sanjo'],
+    direct_urls: ['https://www.youtube.com/watch?v=Upi59LwCWlQ', 'https://www.youtube.com/watch?v=AINovmLPHco&t=67s', 'https://www.youtube.com/watch?v=HV5F8-f2als'],
+    desc_ko: '흔들리지 않는 단단한 마음의 중심이 필요합니다.', desc_en: 'You need an unshakable, solid center of mind.',
+    reason_ko: '토(土)의 기운은 포용과 안정을 상징합니다. 아쟁의 낮고 묵직한 베이스 선율은 마치 단단한 대지처럼 불안한 마음을 붙잡아주고, 당신이 고요히 중심을 잡도록 돕습니다.',
+    reason_en: 'The Earth (土) energy symbolizes embrace and stability. The low, heavy bass melody of the Ajaeng acts like solid ground, holding your anxious mind and helping you find your calm center.',
+    action_guide_ko: '🎧 감상 팁: 편안한 의자에 깊숙이 기대어 앉아, 아쟁의 묵직한 저음이 바닥으로 가라앉는 것을 호흡과 함께 느껴보세요.',
+    action_guide_en: '🎧 Tip: Lean deep into a comfortable chair and feel the heavy bass of the Ajaeng sinking to the floor along with your breath.',
+    words_ko: ['주변의 속도에 휩쓸리지 마세요. 오늘은 당신만의 템포가 정답입니다.', '조금 천천히 걸어도 괜찮습니다. 중심만 잘 잡고 있다면요.', '깊게 뿌리내린 나무는 쉽게 흔들리지 않습니다.'],
+    words_en: ['Do not be swept away by the speed of your surroundings. Your own tempo is the right answer today.', 'It is okay to walk a little slowly, as long as you keep your balance.', 'A deeply rooted tree is not easily shaken.']
+  },
+  금: {
+    inst_ko: '거문고 (玄琴)', inst_en: 'Geomungo (Plucked Zither)',
+    songs_ko: ['거문고 관악영산회상 상령산', '신쾌동류 거문고산조', '한갑득류 거문고산조'], songs_en: ['Geomungo Gwanak Yeongsanhoesang Sangnyeongsan', 'Sin Kwe-dong Style Geomungo Sanjo', 'Han Gap-deuk Style Geomungo Sanjo'],
+    direct_urls: ['https://www.youtube.com/watch?v=Zp-PAXT3S5Y', 'https://www.youtube.com/watch?v=WuxY3XcdnBo', 'https://www.youtube.com/watch?v=zRH9VF3oMt0'],
+    desc_ko: '복잡한 생각을 비워낼 깊은 사유와 절제가 필요합니다.', desc_en: 'You need deep thought and restraint to clear complex thoughts.',
+    reason_ko: '금(金)의 기운은 결단과 깊은 내면 탐구를 상징합니다. 선비들의 악기라 불리는 거문고의 고요하고 타격감 있는 소리가 번잡한 생각을 끊어내고 맑은 정신을 일깨워줍니다.',
+    reason_en: 'The Metal (金) energy symbolizes determination and deep inner exploration. The calm, percussive sound of the Geomungo, known as the scholar’s instrument, cuts off distracting thoughts and awakens a clear mind.',
+    action_guide_ko: '🎧 감상 팁: 창문을 살짝 열어 신선한 공기를 마시며, 거문고의 타격감이 복잡한 생각을 툭툭 끊어내는 것에 귀 기울여 보세요.',
+    action_guide_en: '🎧 Tip: Open the window slightly, breathe in the fresh air, and listen to how the striking sound of the Geomungo snaps away complex thoughts.',
+    words_ko: ['말을 줄이고 침묵의 공간을 늘려보세요. 답은 그곳에 있습니다.', '가장 고요한 순간에 가장 예리한 통찰이 찾아옵니다.', '오늘은 무언가를 더하기보다, 비워내는 것에 집중해 보세요.'],
+    words_en: ['Speak less and expand the space of silence. The answer lies there.', 'The sharpest insights come in the quietest moments.', 'Instead of adding something today, focus on emptying.']
+  },
+  수: {
+    inst_ko: '대금 (大笒)', inst_en: 'Daegeum (Bamboo Flute)',
+    songs_ko: ['대금 독주 청성곡', '이생강류 대금산조', '서용석류 대금산조'], songs_en: ['Daegeum Solo Cheongseonggok', 'Lee Saeng-gang Style Daegeum Sanjo', 'Seo Yong-seok Style Daegeum Sanjo'],
+    direct_urls: ['https://www.youtube.com/watch?v=8ewPb9b05MI', 'https://www.youtube.com/watch?v=fAgEJdE8oZ8', 'https://www.youtube.com/watch?v=cTPUZsJjmkw'],
+    desc_ko: '막힌 상황을 유연하게 풀어갈 지혜와 흐름이 필요합니다.', desc_en: 'You need wisdom and flow to smoothly resolve blocked situations.',
+    reason_ko: '수(水)의 기운은 유연함과 지혜를 상징합니다. 대금 특유의 맑고 청아한 청공(갈대청) 떨림이 마음속 맺힌 것을 바람처럼 흩어버리고, 물 흐르듯 자연스러운 순환을 돕습니다.',
+    reason_en: 'The Water (水) energy symbolizes flexibility and wisdom. The clear, pure vibration of the Daegeum’s reed membrane scatters the knots in your heart like the wind, aiding a natural flow like water.',
+    action_guide_ko: '🎧 감상 팁: 물을 한 모금 천천히 삼킨 뒤, 대금의 청아한 소리가 굽이치는 물결처럼 몸을 감싸는 것을 느껴보세요.',
+    action_guide_en: '🎧 Tip: Slowly swallow a sip of water, and feel the clear sound of the Daegeum wrapping around your body like rippling waves.',
+    words_ko: ['바위에 막히면 돌아가는 물처럼, 오늘은 힘을 빼고 흐름에 맡겨보세요.', '모든 것은 결국 지나가고 흘러갑니다. 마음을 편안히 가지세요.', '억지로 풀려 하지 마세요. 시간과 바람이 해결해 줄 것입니다.'],
+    words_en: ['Like water flowing around a blocking rock, relax today and trust the flow.', 'Everything eventually passes and flows. Keep your mind at ease.', 'Do not try to force it. Time and the wind will solve it.']
+  }
+};
+
+const TIMES = [
+  { label_ko:'자시', label_en:'Jasi', range_ko:'23~01시', range_en:'23~01h', ji:'子' }, { label_ko:'축시', label_en:'Chuksi', range_ko:'01~03시', range_en:'01~03h', ji:'丑' },
+  { label_ko:'인시', label_en:'Insi', range_ko:'03~05시', range_en:'03~05h', ji:'寅' }, { label_ko:'묘시', label_en:'Myosi', range_ko:'05~07시', range_en:'05~07h', ji:'卯' },
+  { label_ko:'진시', label_en:'Jinsi', range_ko:'07~09시', range_en:'07~09h', ji:'辰' }, { label_ko:'사시', label_en:'Sasi', range_ko:'09~11시', range_en:'09~11h', ji:'巳' },
+  { label_ko:'오시', label_en:'Osi', range_ko:'11~13시', range_en:'11~13h', ji:'午' }, { label_ko:'미시', label_en:'Misi', range_ko:'13~15시', range_en:'13~15h', ji:'未' },
+  { label_ko:'신시', label_en:'Sinsi', range_ko:'15~17시', range_en:'15~17h', ji:'申' }, { label_ko:'유시', label_en:'Yusi', range_ko:'17~19시', range_en:'17~19h', ji:'酉' },
+  { label_ko:'술시', label_en:'Sulsi', range_ko:'19~21시', range_en:'19~21h', ji:'戌' }, { label_ko:'해시', label_en:'Haesi', range_ko:'21~23시', range_en:'21~23h', ji:'亥' },
+  { label_ko:'모름', label_en:'Unknown', range_ko:'', range_en:'', ji:null },
+];
+
+const EMOTION_TAGS = [
+  { ko: '지쳐있어요', en: 'Exhausted', weight: 3 }, { ko: '영감이 필요해요', en: 'Need inspiration', weight: 2 },
+  { ko: '차분해지고 싶어요', en: 'Want to calm down', weight: 1 }, { ko: '위로가 필요해요', en: 'Need comfort', weight: 3 },
+  { ko: '설레어요', en: 'Fluttering', weight: 1 }, { ko: '무기력해요', en: 'Lethargic', weight: 3 },
+  { ko: '번아웃 직전이에요', en: 'Close to burnout', weight: 3 }, { ko: '누군가 그리워요', en: 'Miss someone', weight: 2 },
+  { ko: '외로워요', en: 'Lonely', weight: 2 }, { ko: '화가 나요', en: 'Angry', weight: 3 },
+  { ko: '긴장돼요', en: 'Nervous', weight: 2 }, { ko: '집중이 안 돼요', en: 'Cannot focus', weight: 1 },
+  { ko: '기분이 꿀꿀해요', en: 'Feeling blue', weight: 2 }, { ko: '자신감이 필요해요', en: 'Need confidence', weight: 2 },
+  { ko: '머리가 복잡해요', en: 'Complicated mind', weight: 2 }, { ko: '그냥 쉬고 싶어요', en: 'Just want to rest', weight: 1 },
+  { ko: '피곤해요', en: 'Tired', weight: 3 }, { ko: '답답해요', en: 'Feeling stifled', weight: 3 },
+  { ko: '용기가 필요해요', en: 'Need courage', weight: 2 }, { ko: '기분이 좋아요', en: 'Feeling great', weight: 1 },
+  { ko: '결정이 어려워요', en: 'Hard to decide', weight: 2 }, { ko: '홀가분해요', en: 'Feeling relieved', weight: 1 },
+  { ko: '새롭게 시작하고 싶어요', en: 'Want a new beginning', weight: 2 }, { ko: '평화로워요', en: 'Peaceful', weight: 1 },
+  { ko: '신나요', en: 'Excited', weight: 1 }, { ko: '의욕이 넘쳐요', en: 'Highly motivated', weight: 1 },
+  { ko: '편안해요', en: 'Comfortable', weight: 1 }, { ko: '여유로워요', en: 'Relaxed', weight: 1 },
+  { ko: '기대돼요', en: 'Looking forward to it', weight: 1 }, { ko: '기분 전환이 필요해요', en: 'Need a refresh', weight: 2 }
+];
+
+let currentResultData = null; 
+
+function toggleLanguage() {
+  currentLang = currentLang === 'ko' ? 'en' : 'ko';
+  document.body.setAttribute('data-lang', currentLang);
+  document.getElementById('lang-toggle').textContent = currentLang === 'ko' ? 'ENG' : 'KOR';
+  updateSelectText(); 
+  if (currentResultData) { renderResult(currentResultData); }
+}
+
+function updateSelectText() {
+  const selYear = document.getElementById('sel-year');
+  if (selYear.options.length > 0) selYear.options[0].text = currentLang === 'ko' ? '년도' : 'Year';
+  Array.from(selYear.options).forEach((opt, i) => { if (i > 0) opt.text = currentLang === 'ko' ? `${opt.value}년` : `${opt.value}`; });
+
+  const selMonth = document.getElementById('sel-month');
+  if (selMonth.options.length > 0) selMonth.options[0].text = currentLang === 'ko' ? '월' : 'Month';
+  Array.from(selMonth.options).forEach((opt, i) => { if (i > 0) opt.text = currentLang === 'ko' ? `${opt.value}월` : `${opt.value}`; });
+
+  const selDay = document.getElementById('sel-day');
+  if (selDay.options.length > 0) selDay.options[0].text = currentLang === 'ko' ? '일' : 'Day';
+  Array.from(selDay.options).forEach((opt, i) => { if (i > 0) opt.text = currentLang === 'ko' ? `${opt.value}일` : `${opt.value}`; });
+}
+
+function init() {
+  const selYear = document.getElementById('sel-year');
+  selYear.innerHTML = '<option value=""></option>';
+  const curY = new Date().getFullYear();
+  for (let y = curY; y >= 1950; y--) { selYear.innerHTML += `<option value="${y}"></option>`; }
+
+  const selMonth = document.getElementById('sel-month');
+  selMonth.innerHTML = '<option value=""></option>';
+  for (let m = 1; m <= 12; m++) { selMonth.innerHTML += `<option value="${m}"></option>`; }
+  selMonth.addEventListener('change', updateDays);
+  selYear.addEventListener('change', updateDays);
+
+  const selDay = document.getElementById('sel-day');
+  selDay.innerHTML = '<option value=""></option>';
+
+  const grid = document.getElementById('time-grid');
+  TIMES.forEach((t, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'time-btn'; btn.dataset.idx = i;
+    const rangeHtml = (t.range_ko || t.range_en) ? `<span class="time-range"><span class="ko">${t.range_ko}</span><span class="en">${t.range_en}</span></span>` : '';
+    btn.innerHTML = `<span class="time-kor" ${!rangeHtml ? 'style="margin-bottom:0;"' : ''}><span class="ko">${t.label_ko}</span><span class="en">${t.label_en}</span></span>${rangeHtml}`;
+    btn.addEventListener('click', () => { document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('selected')); btn.classList.add('selected'); });
+    grid.appendChild(btn);
+  });
+
+  const tagBox = document.getElementById('emotion-tags');
+  EMOTION_TAGS.forEach(tag => {
+    const el = document.createElement('span');
+    el.className = 'etag'; 
+    el.innerHTML = `<span class="ko">${tag.ko}</span><span class="en">${tag.en}</span>`;
+    el.dataset.weight = tag.weight;
+    el.addEventListener('click', () => { el.classList.toggle('active'); });
+    tagBox.appendChild(el);
+  });
+  
+  updateSelectText();
+  const today = new Date();
+  document.getElementById('result-today-date').textContent = `${today.getFullYear()}.${String(today.getMonth()+1).padStart(2,'0')}.${String(today.getDate()).padStart(2,'0')}`;
+}
+
+function updateDays() {
+  const y = parseInt(document.getElementById('sel-year').value) || 2000;
+  const m = parseInt(document.getElementById('sel-month').value) || 1;
+  const days = new Date(y, m, 0).getDate();
+  const selDay = document.getElementById('sel-day');
+  const prev = selDay.value;
+  selDay.innerHTML = '<option value=""></option>';
+  for (let d = 1; d <= days; d++) { selDay.innerHTML += `<option value="${d}"></option>`; }
+  if (prev && parseInt(prev) <= days) selDay.value = prev;
+  updateSelectText();
+}
+
+function toJD(y, m, d) {
+  const a = Math.floor((14 - m) / 12);
+  const yr = y + 4800 - a;
+  const mo = m + 12 * a - 3;
+  return d + Math.floor((153*mo+2)/5) + 365*yr + Math.floor(yr/4) - Math.floor(yr/100) + Math.floor(yr/400) - 32045;
+}
+
+function startReading() {
+  const year = parseInt(document.getElementById('sel-year').value);
+  const month = parseInt(document.getElementById('sel-month').value);
+  const day = parseInt(document.getElementById('sel-day').value);
+
+  if (!year || !month || !day) {
+    alert(currentLang === 'ko' ? '정확한 처방을 위해 생년월일을 모두 입력해 주세요.' : 'Please enter your full date of birth.');
+    return;
+  }
+
+  goTo('screen-loading');
+  runLoadingMessages();
+
+  setTimeout(() => {
+    const today = new Date();
+    const tBase = toJD(today.getFullYear(), today.getMonth()+1, today.getDate()) - 2415021;
+    const tGan = CHEONGAN[(tBase % 10 + 10) % 10];
+    const tJi = JIJI[(tBase % 12 + 12) % 12];
+    
+    const activeTags = Array.from(document.querySelectorAll('.etag.active'));
+    const emoScore = activeTags.reduce((acc, el) => acc + parseInt(el.dataset.weight), 0);
+    
+    const hash = (year * month * day + emoScore * 7 + tBase) % 5;
+    const ohangKeys = ['목','화','토','금','수'];
+    const needed = ohangKeys[hash];
+    
+    const info = DB[needed];
+    const songIdx = (year + day + emoScore) % info.songs_ko.length;
+    const wordIdx = (day + emoScore) % info.words_ko.length;
+    
+    currentResultData = { tGan: tGan, tJi: tJi, needed_key: needed, needed_color: OHANG_INFO[needed].color, songIdx: songIdx, wordIdx: wordIdx, directUrl: info.direct_urls[songIdx] };
+    renderResult(currentResultData);
+    goTo('screen-result');
+  }, 2500);
+}
+
+let loadingTimer;
+function runLoadingMessages() {
+  const msgs_ko = ['만세력을 펼치는 중...', '당신의 기운을 읽고 있습니다', '선택하신 감정을 분석 중입니다', '맞춤 국악을 처방하고 있습니다'];
+  const msgs_en = ['Reading the Almanac...', 'Sensing your energy...', 'Analyzing your emotions...', 'Prescribing custom Gugak...'];
+  let i = 0;
+  const el = document.getElementById('loading-msg');
+  clearInterval(loadingTimer);
+  el.textContent = currentLang === 'ko' ? msgs_ko[0] : msgs_en[0];
+  loadingTimer = setInterval(() => { i = (i+1) % msgs_ko.length; el.textContent = currentLang === 'ko' ? msgs_ko[i] : msgs_en[i]; }, 600);
+}
+
+function renderResult(data) {
+  clearInterval(loadingTimer);
+  const ilchinKor = SIPGAN_KOR['ko'][data.tGan] + JIJI_KOR['ko'][JIJI.indexOf(data.tJi)];
+  const ilchinEn = SIPGAN_KOR['en'][data.tGan] + ' ' + JIJI_KOR['en'][JIJI.indexOf(data.tJi)];
+  
+  document.getElementById('result-ilchin').textContent = data.tGan + data.tJi;
+  document.getElementById('result-ilchin-sub').textContent = currentLang === 'ko' ? `${ilchinKor}일 · 당신의 운세 흐름` : `${ilchinEn} · Flow of your destiny`;
+  
+  const elNeeded = document.getElementById('rx-needed-element');
+  elNeeded.textContent = currentLang === 'ko' ? OHANG_INFO[data.needed_key].label_ko : OHANG_INFO[data.needed_key].label_en;
+  elNeeded.style.color = data.needed_color;
+  
+  document.getElementById('rx-needed-desc').textContent = currentLang === 'ko' ? DB[data.needed_key].desc_ko : DB[data.needed_key].desc_en;
+  document.getElementById('rx-song').textContent = currentLang === 'ko' ? DB[data.needed_key].songs_ko[data.songIdx] : DB[data.needed_key].songs_en[data.songIdx];
+  document.getElementById('rx-inst').textContent = currentLang === 'ko' ? `처방 악기 : ${DB[data.needed_key].inst_ko}` : `Prescribed Instrument : ${DB[data.needed_key].inst_en}`;
+  document.getElementById('rx-reason').textContent = currentLang === 'ko' ? DB[data.needed_key].reason_ko : DB[data.needed_key].reason_en;
+  document.getElementById('rx-action-guide').textContent = currentLang === 'ko' ? DB[data.needed_key].action_guide_ko : DB[data.needed_key].action_guide_en;
+  document.getElementById('rx-word').textContent = currentLang === 'ko' ? `"${DB[data.needed_key].words_ko[data.wordIdx]}"` : `"${DB[data.needed_key].words_en[data.wordIdx]}"`;
+  
+  const ytBtn = document.getElementById('btn-youtube');
+  ytBtn.onclick = () => { window.open(data.directUrl, '_blank'); };
+}
+
+function goTo(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0,0);
+}
+
+function downloadPrescription() {
+  const target = document.getElementById('capture-area');
+  const btn = document.querySelector('.btn-save');
+  const originalText = btn.innerHTML;
+  
+  btn.innerHTML = currentLang === 'ko' ? '저장 중... ⏳' : 'Saving... ⏳';
+  btn.style.pointerEvents = 'none';
+
+  setTimeout(() => {
+    // 다크모드 여부에 따라 캡처 배경색 설정
+    const captureBg = document.body.classList.contains('dark-mode') ? '#1A1720' : '#e9e3d5';
+    
+    html2canvas(target, {
+      scale: 3, // 화질을 높여 캡처 (기존 2 -> 3)
+      backgroundColor: captureBg,
+      useCORS: true,
+      logging: false,
+      scrollY: -window.scrollY // 스크롤이 내려가 있어도 잘리지 않도록 보정
+    }).then(canvas => {
+      const link = document.createElement('a');
+      link.download = `오늘의가락_처방전_${new Date().getTime()}.png`;
+      link.href = canvas.toDataURL('image/png', 1.0);
+      link.click();
+      
+      setTimeout(() => {
+        btn.innerHTML = originalText;
+        btn.style.pointerEvents = 'auto';
+      }, 1000);
+    }).catch(err => {
+      console.error('Capture failed', err);
+      alert(currentLang === 'ko' ? '이미지 저장에 실패했습니다. 다시 시도해 주세요.' : 'Failed to save image. Please try again.');
+      btn.innerHTML = originalText;
+      btn.style.pointerEvents = 'auto';
+    });
+  }, 200);
+}
+
+function shareResult() {
+  if (!currentResultData) return;
+  const neededKey = currentResultData.needed_key;
+  const songName = currentLang === 'ko' ? DB[neededKey].songs_ko[currentResultData.songIdx] : DB[neededKey].songs_en[currentResultData.songIdx];
+  const wordTxt = currentLang === 'ko' ? DB[neededKey].words_ko[currentResultData.wordIdx] : DB[neededKey].words_en[currentResultData.wordIdx];
+  const elementTxt = currentLang === 'ko' ? OHANG_INFO[neededKey].label_ko : OHANG_INFO[neededKey].label_en;
+  
+  let txt = '';
+  if(currentLang === 'ko') {
+    txt = `[오늘의 가락 처방전]\n`
+      + `오늘 당신에게 필요한 기운은 '${elementTxt}'입니다.\n\n`
+      + `🎵 추천 국악: ${songName}\n`
+      + `✨ 오늘의 한마디: "${wordTxt}"\n\n`
+      + `🎟 서울남산국악당 공연 예매하기\n`
+      + `https://www.sgtt.kr/program/concert\n\n`
+      + `#서울남산국악당 #오늘의가락 #나만의소리처방전`;
+  } else {
+    txt = `[Today's Rhythm Prescription]\n`
+      + `The energy you need today is '${elementTxt}'.\n\n`
+      + `🎵 Recommended Gugak: ${songName}\n`
+      + `✨ Word of the Day: "${wordTxt}"\n\n`
+      + `🎟 Book Seoul Namsan Traditional Theater Tickets\n`
+      + `https://www.sgtt.kr/program/concert\n\n`
+      + `#SeoulNamsanTraditionalTheater #TodaysRhythm #GugakPrescription`;
+  }
+    
+  if (navigator.share) {
+    navigator.share({ title: currentLang === 'ko' ? '오늘의 가락 처방전' : "Today's Rhythm Prescription", text: txt }).catch(console.error);
+  } else {
+    const textArea = document.createElement("textarea");
+    textArea.value = txt; document.body.appendChild(textArea); textArea.select();
+    try {
+      document.execCommand('copy');
+      alert(currentLang === 'ko' ? '처방전 내용이 복사되었습니다. 인스타그램이나 카카오톡에 공유해 보세요! 📋' : 'Prescription copied to clipboard! Share it on Instagram or messengers. 📋');
+    } catch (err) {
+      alert(currentLang === 'ko' ? '복사에 실패했습니다.' : 'Failed to copy.');
+    }
+    document.body.removeChild(textArea);
+  }
+}
+
+init();
+</script>
+</body>
+</html>
